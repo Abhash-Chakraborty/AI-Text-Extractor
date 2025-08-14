@@ -1,0 +1,2 @@
+Hello from API test.
+This is a simple text file to verify the /api/extract endpoint.

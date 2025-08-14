@@ -90,28 +90,64 @@ streamlit run src/streamlit_app.py
 ```
 
 Then open http://localhost:8501 in your browser to:
-- Upload PDF files or text documents
-- Paste Google Drive links
-- Extract and download text content
+ - Upload PDF files or text documents
+ - Paste Google Drive links
+ - Extract and download text content
 
-### API Endpoints
+### REST API (FastAPI)
 
-The Streamlit app also provides API endpoints:
-
-#### Extract Text from File Upload
+Run API locally with Uvicorn:
 
 ```bash
-curl -X POST "http://localhost:8501/api/extract" \
-  -F "file=@your_document.pdf"
+uvicorn src.api_app:app --reload --host 0.0.0.0 --port 8000
 ```
 
-#### Extract Text from URL
+Test endpoints:
 
 ```bash
-curl -X POST "http://localhost:8501/api/extract-url" \
-  -H "Content-Type: application/json" \
-  -d '{"url": "https://drive.google.com/file/d/your-file-id/view"}'
+# File upload
+curl -X POST "http://localhost:8000/api/extract" -F "file=@path/to/document.pdf"
+
+# From URL
+curl -X POST "http://localhost:8000/api/extract-url" \
+   -H "Content-Type: application/json" \
+   -d '{"url": "https://drive.google.com/file/d/FILE_ID/view"}'
 ```
+
+Interactive docs:
+
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
+
+Docker API mode:
+
+```bash
+docker build -t text-extractor:latest .
+docker run --rm -p 8000:7860 -e APP_MODE=api --env-file .env text-extractor:latest
+# now API is available at http://localhost:8000
+```
+
+Enable CORS (for browser integrations): set a comma-separated list of allowed origins
+
+```bash
+# allow any origin (dev only)
+setx API_CORS_ORIGINS "*"
+
+# or restrict to specific origins
+setx API_CORS_ORIGINS "https://your-frontend.app,https://another.app"
+```
+
+### API Endpoints (FastAPI)
+
+When running the FastAPI server, the following endpoints are available:
+
+- POST /api/extract — multipart form-data file upload
+- POST /api/extract-url — JSON body { "url": "<google-drive-url>" }
+- GET /healthz — health check
+
+Docs:
+- GET /docs — Swagger UI
+- GET /redoc — ReDoc
 
 ### Python Package
 
@@ -138,10 +174,44 @@ This app can be deployed on Hugging Face Spaces (Docker):
    git push https://huggingface.co/spaces/YOUR_USERNAME/data-extractor
    ```
 
-2. **Add a Secret in your Space settings**:
-   - `GOOGLE_API_KEY`: Your Google Vision API key
+2. **Configure Variables & Secrets**:
+   - Variable: `APP_MODE=ui` for Streamlit UI or `APP_MODE=api` for REST API
+   - Secret: `GOOGLE_API_KEY` — Your Google Vision API key (required for PDFs/images)
+   - Variable (optional): `API_CORS_ORIGINS` — Comma-separated origins or `*`
 
-3. **The app will auto-deploy** and be available as both a web interface and API
+3. **Access**: Use the Space URL shown on your Space page. For API mode, append the endpoints listed above.
+
+#### Hugging Face Space endpoints (API mode)
+
+Replace YOUR_SPACE_URL with the URL shown on the Space "App" tab, e.g., `https://your-space-yourname.hf.space`.
+
+Examples:
+
+```bash
+# Health check
+curl -sS https://YOUR_SPACE_URL/healthz
+
+# Upload a file (PDF/txt/etc.)
+curl -X POST "https://YOUR_SPACE_URL/api/extract" -F "file=@path/to/document.pdf"
+
+# Extract from a URL (e.g., Google Drive link)
+curl -X POST "https://YOUR_SPACE_URL/api/extract-url" \
+   -H "Content-Type: application/json" \
+   -d '{"url":"https://drive.google.com/file/d/FILE_ID/view"}'
+
+# Interactive docs
+# Swagger UI
+start https://YOUR_SPACE_URL/docs
+# ReDoc
+start https://YOUR_SPACE_URL/redoc
+```
+
+Notes:
+- Endpoints are available only when the Space runs with `APP_MODE=api`.
+- For browser apps hosted on a different domain, set `API_CORS_ORIGINS` in the Space Variables.
+- For private Spaces, include an access token:
+   - Generate a token on https://huggingface.co/settings/tokens
+   - Add header: `-H "Authorization: Bearer HF_TOKEN"`
 
 ### Local Development
 
@@ -174,11 +244,29 @@ data-extractor/
 │   ├── __init__.py
 │   ├── core.py          # Main extraction logic
 │   └── utils.py         # Helper functions
+├── src/api_app.py       # FastAPI app (REST API)
 ├── src/streamlit_app.py # Streamlit web app
 ├── pyproject.toml       # Package configuration
 ├── requirements.txt     # Dependencies for HF Spaces
 └── README.md           # This file
+
+## Do I need cloud storage?
+
+Short answer: No.
+
+- Local uploads are processed in-memory or via temporary files and removed after extraction.
+- Google Drive URLs are downloaded into a temporary file and deleted after processing.
+- Nothing is persisted to disk or external storage by default.
+
+Consider external storage (e.g., S3/GCS) only if you need to retain original files or outputs, handle very large files, or build user-specific history/audit features.
 ```
+
+## Why enable CORS and OpenAPI docs?
+
+- Faster iteration: Test requests directly from Swagger UI without external tools.
+- Easier integration: Frontends can call the API from browsers when CORS is enabled.
+- Better DX: Self-documented API contract (/openapi.json) supports client generation.
+- Safer defaults: CORS origins can be restricted per environment; use `*` only in dev.
 
 ## Contributing
 
@@ -196,5 +284,4 @@ MIT License - see LICENSE file for details.
 
 For issues and questions:
 - 📧 Email: abhashchak14@gmail.com
-- 🐛 Issues: [GitHub Issues](https://github.com/Abhash-Chakraborty/Darzi-AI-Resume-Suite/issues)
 - 💬 LinkedIn: [Abhash Chakraborty](https://www.linkedin.com/in/abhash-chakraborty-b78862247)

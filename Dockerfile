@@ -16,7 +16,8 @@ COPY . .
 
 # Set Python path and default port (Hugging Face provides PORT)
 ENV PYTHONPATH=/app/src \
-    PORT=7860
+    PORT=7860 \
+    APP_MODE=ui
 
 # Expose default port used by Hugging Face Spaces
 EXPOSE 7860
@@ -24,5 +25,9 @@ EXPOSE 7860
 # Health check (use PORT env set by platform)
 HEALTHCHECK CMD curl --fail http://localhost:${PORT}/_stcore/health || exit 1
 
-# Run the app (use PORT env if set by the platform)
-CMD streamlit run src/streamlit_app.py --server.port=${PORT} --server.address=0.0.0.0
+# Run either Streamlit UI or FastAPI API based on APP_MODE
+CMD if [ "$APP_MODE" = "api" ]; then \
+    uvicorn src.api_app:app --host 0.0.0.0 --port ${PORT}; \
+    else \
+    streamlit run src/streamlit_app.py --server.port=${PORT} --server.address=0.0.0.0; \
+    fi

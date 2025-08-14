@@ -44,7 +44,7 @@ def main():
         
         **Cost:**
         - Text files: Free
-        - PDFs/Images: ~$1.50/1000 pages
+        - PDFs/Images: ~$1.50/1000 pages (First 1000 pages free)
         
         **LinkedIn Profiles:**
         Download as PDF from LinkedIn instead of using URLs.
@@ -68,12 +68,15 @@ def main():
             "Choose files to extract text from",
             type=['pdf', 'txt', 'md', 'csv', 'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'],
             accept_multiple_files=True,
-            help="Upload PDFs, images, or text files"
+            help="Upload PDFs, images, or text files",
+            key="file_uploader"
         )
         
         if uploaded_files:
-            for uploaded_file in uploaded_files:
-                handle_file_upload(uploaded_file)
+            st.write(f"{len(uploaded_files)} file(s) selected")
+            process_all = st.button("Process all files", key="process_all")
+            for idx, uploaded_file in enumerate(uploaded_files):
+                handle_file_upload(uploaded_file, idx, process_all)
     
     with tab2:
         st.header("Extract from URL")
@@ -121,7 +124,7 @@ def main():
         """)
 
 
-def handle_file_upload(uploaded_file: Any):
+def handle_file_upload(uploaded_file: Any, idx: int, force_process: bool = False):
     """Handle individual file upload and extraction."""
     st.subheader(f"📄 {uploaded_file.name}")
     
@@ -144,31 +147,49 @@ def handle_file_upload(uploaded_file: Any):
         cost = "Free" if file_type == "text" else "Vision API"
         st.metric("Cost", cost)
     
-    if st.button(f"Extract Text from {uploaded_file.name}", key=f"extract_{uploaded_file.name}"):
+    # Disable extraction for Vision types if API key is missing
+    api_key_missing = (file_type == "vision" and not os.getenv('GOOGLE_API_KEY'))
+    disabled_reason = " (requires GOOGLE_API_KEY)" if api_key_missing else ""
+    should_process = force_process or st.button(
+        f"Extract Text from {uploaded_file.name}{disabled_reason}",
+        key=f"extract_{idx}_{uploaded_file.name}",
+        disabled=api_key_missing,
+    )
+    
+    if should_process:
         with st.spinner(f"Extracting text from {uploaded_file.name}..."):
             try:
-                # Save uploaded file temporarily
-                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(uploaded_file.name)[1]) as tmp_file:
-                    tmp_file.write(uploaded_file.getvalue())
-                    tmp_path = tmp_file.name
-                
-                # Extract text
-                extracted_text = extract_text(tmp_path)
-                
-                # Clean up
-                os.unlink(tmp_path)
+                file_ext = os.path.splitext(uploaded_file.name)[1].lower()
+                # Text-like files: process in-memory to avoid FS issues
+                if file_ext in {'.txt', '.md', '.rtf', '.csv', '.log'}:
+                    raw = uploaded_file.getvalue()
+                    text = None
+                    for enc in ('utf-8', 'utf-8-sig', 'latin1', 'cp1252'):
+                        try:
+                            text = raw.decode(enc)
+                            break
+                        except UnicodeDecodeError:
+                            continue
+                    if text is None:
+                        text = raw.decode('utf-8', errors='replace')
+                    extracted_text = text.strip()
+                else:
+                    # Vision/API files: write to temp and use core pipeline
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=file_ext) as tmp_file:
+                        tmp_file.write(uploaded_file.getvalue())
+                        tmp_path = tmp_file.name
+                    try:
+                        extracted_text = extract_text(tmp_path)
+                    finally:
+                        if os.path.exists(tmp_path):
+                            os.unlink(tmp_path)
                 
                 # Display results
                 st.success(f"✅ Extracted {len(extracted_text)} characters")
-                
-                # Show preview and download
                 show_extraction_results(extracted_text, uploaded_file.name)
                 
             except Exception as e:
                 st.error(f"❌ Error extracting text: {str(e)}")
-                # Clean up on error
-                if 'tmp_path' in locals() and os.path.exists(tmp_path):
-                    os.unlink(tmp_path)
 
 
 def handle_url_extraction(url: str):
