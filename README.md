@@ -4,6 +4,7 @@ emoji: 📖
 colorFrom: green
 colorTo: yellow
 sdk: docker
+app_port: 7860
 ---
 
 # Data Extractor
@@ -71,10 +72,11 @@ This approach is more reliable and respects LinkedIn's terms of service.
    - Go to [Google Cloud Console](https://console.cloud.google.com/)
    - Enable the Vision API
    - Create an API key
-   - Add to your `.env` file:
+   - Locally: add to your environment or a `.env` file in the project root (the app reads `os.getenv('GOOGLE_API_KEY')`):
    ```env
    GOOGLE_API_KEY=your_api_key_here
    ```
+   - On Hugging Face Spaces: add `GOOGLE_API_KEY` as a Secret in your Space (Settings → Secrets)
 
 ## Usage
 
@@ -83,7 +85,8 @@ This approach is more reliable and respects LinkedIn's terms of service.
 Launch the web interface:
 
 ```bash
-streamlit run app.py
+# from the project root
+streamlit run src/streamlit_app.py
 ```
 
 Then open http://localhost:8501 in your browser to:
@@ -128,14 +131,14 @@ print(text)
 
 ### Hugging Face Spaces
 
-This app is designed to be deployed on Hugging Face Spaces:
+This app can be deployed on Hugging Face Spaces (Docker):
 
 1. **Push to Hugging Face**:
    ```bash
    git push https://huggingface.co/spaces/YOUR_USERNAME/data-extractor
    ```
 
-2. **Add secrets in HF Space settings**:
+2. **Add a Secret in your Space settings**:
    - `GOOGLE_API_KEY`: Your Google Vision API key
 
 3. **The app will auto-deploy** and be available as both a web interface and API
@@ -171,7 +174,7 @@ data-extractor/
 │   ├── __init__.py
 │   ├── core.py          # Main extraction logic
 │   └── utils.py         # Helper functions
-├── app.py               # Streamlit web app
+├── src/streamlit_app.py # Streamlit web app
 ├── pyproject.toml       # Package configuration
 ├── requirements.txt     # Dependencies for HF Spaces
 └── README.md           # This file

@@ -6,11 +6,15 @@ import tempfile
 from typing import Dict, Any
 
 import streamlit as st
-from streamlit.runtime.uploaded_file_manager import UploadedFile
+from typing import TYPE_CHECKING
 
-# Add src to path for local imports
+if TYPE_CHECKING:
+    # Only for type checking; avoids runtime import of private module
+    from streamlit.runtime.uploaded_file_manager import UploadedFile  # pragma: no cover
+
+# Ensure project root is on sys.path so `src/data_extractor` is importable
 import sys
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from data_extractor import extract_text
 from data_extractor.utils import validate_file_type, format_file_size
@@ -117,7 +121,7 @@ def main():
         """)
 
 
-def handle_file_upload(uploaded_file: UploadedFile):
+def handle_file_upload(uploaded_file: "UploadedFile" | Any):
     """Handle individual file upload and extraction."""
     st.subheader(f"📄 {uploaded_file.name}")
     
@@ -214,21 +218,8 @@ def show_extraction_results(text: str, filename: str):
     )
 
 
-# API Endpoints for external access
-@st.fragment
-def api_extract_file():
-    """API endpoint for file extraction."""
-    # This would be implemented as a proper REST API
-    # For now, showing the structure
-    pass
-
-
-@st.fragment  
-def api_extract_url():
-    """API endpoint for URL extraction."""
-    # This would be implemented as a proper REST API
-    # For now, showing the structure
-    pass
+# Note: API endpoints via Streamlit fragments are not used here to keep
+# compatibility with older Streamlit versions on some platforms.
 
 
 if __name__ == "__main__":
