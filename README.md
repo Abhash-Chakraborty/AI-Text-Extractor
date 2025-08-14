@@ -1,3 +1,11 @@
+---
+title: Text_Extractor
+emoji: 📖
+colorFrom: green
+colorTo: yellow
+sdk: docker
+---
+
 # Data Extractor
 
 A powerful text extraction tool that uses Google Vision API to extract text from PDFs and documents. Features a Streamlit web interface for easy file uploads and API endpoints for integration.
