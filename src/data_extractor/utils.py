@@ -1,7 +1,7 @@
 """Utility functions for data extraction."""
 
 import re
-from typing import Optional
+from typing import Optional, Tuple
 from urllib.parse import urlparse
 
 
@@ -42,7 +42,7 @@ def format_file_size(size_bytes: int) -> str:
     return f"{s} {size_names[i]}"
 
 
-def validate_file_type(filename: str) -> tuple[bool, str]:
+def validate_file_type(filename: str) -> Tuple[bool, str]:
     """Validate if file type is supported."""
     import os
     

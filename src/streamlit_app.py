@@ -121,7 +121,7 @@ def main():
         """)
 
 
-def handle_file_upload(uploaded_file: "UploadedFile" | Any):
+def handle_file_upload(uploaded_file: Any):
     """Handle individual file upload and extraction."""
     st.subheader(f"📄 {uploaded_file.name}")
     
