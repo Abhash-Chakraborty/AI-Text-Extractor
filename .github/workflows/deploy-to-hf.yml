@@ -3,18 +3,18 @@ name: Deploy to Hugging Face Spaces
 # Trigger on pushes to main and on manual dispatch
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths-ignore:
-      - 'README.md'
-      - '.gitignore'
-      - 'LICENSE'
+      - "README.md"
+      - ".gitignore"
+      - "LICENSE"
   pull_request:
-    branches: [ main ]
-    types: [ closed ]
+    branches: [main]
+    types: [closed]
   workflow_dispatch:
     inputs:
       force_deploy:
-        description: 'Force deployment even if no changes detected'
+        description: "Force deployment even if no changes detected"
         required: false
         default: false
         type: boolean
@@ -23,146 +23,146 @@ jobs:
   deploy:
     if: github.event_name != 'pull_request' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: 🔄 Checkout repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-        lfs: true
-        token: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: 🐍 Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-    
-    - name: 📦 Install UV
-      run: |
-        curl -LsSf https://astral.sh/uv/install.sh | sh
-        echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-    
-    - name: 🔧 Validate project structure
-      run: |
-        echo "📋 Validating project structure..."
-        
-        # Check required files
-        required_files=("pyproject.toml" "Dockerfile" "src/api_app.py" "src/streamlit_app.py")
-        for file in "${required_files[@]}"; do
-          if [[ ! -f "$file" ]]; then
-            echo "❌ Missing required file: $file"
+      - name: 🔄 Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🐍 Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: 📦 Install UV
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+
+      - name: 🔧 Validate project structure
+        run: |
+          echo "📋 Validating project structure..."
+
+          # Check required files
+          required_files=("pyproject.toml" "Dockerfile" "src/api_app.py" "src/streamlit_app.py")
+          for file in "${required_files[@]}"; do
+            if [[ ! -f "$file" ]]; then
+              echo "❌ Missing required file: $file"
+              exit 1
+            fi
+            echo "✅ Found: $file"
+          done
+
+          # Validate Python syntax
+          echo "🔍 Checking Python syntax..."
+          find src -name "*.py" -exec python -m py_compile {} \;
+          echo "✅ Python syntax validation passed"
+
+      - name: 🧪 Run basic tests
+        run: |
+          echo "🧪 Running basic import tests..."
+          uv sync
+
+          # Test imports
+          uv run python -c "
+          import sys
+          sys.path.insert(0, 'src')
+          try:
+              from data_extractor import extract_text
+              from data_extractor.utils import validate_file_type, format_file_size
+              from api_app import app
+              print('✅ All imports successful')
+          except ImportError as e:
+              print(f'❌ Import failed: {e}')
+              sys.exit(1)
+          "
+
+      - name: 🚀 Deploy to Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_USERNAME: abhash-chakraborty
+          HF_REPO: text_extractor
+        run: |
+          echo "🚀 Deploying to Hugging Face Spaces..."
+
+          # Validate HF_TOKEN
+          if [[ -z "$HF_TOKEN" ]]; then
+            echo "❌ HF_TOKEN secret is not set!"
+            echo "Please add your Hugging Face token as a repository secret:"
+            echo "1. Go to https://huggingface.co/settings/tokens"
+            echo "2. Create a token with 'write' permissions"
+            echo "3. Add it as HF_TOKEN in GitHub repository secrets"
             exit 1
           fi
-          echo "✅ Found: $file"
-        done
-        
-        # Validate Python syntax
-        echo "🔍 Checking Python syntax..."
-        find src -name "*.py" -exec python -m py_compile {} \;
-        echo "✅ Python syntax validation passed"
-    
-    - name: 🧪 Run basic tests
-      run: |
-        echo "🧪 Running basic import tests..."
-        uv sync
-        
-        # Test imports
-        uv run python -c "
-        import sys
-        sys.path.insert(0, 'src')
-        try:
-            from data_extractor import extract_text
-            from data_extractor.utils import validate_file_type, format_file_size
-            from api_app import app
-            print('✅ All imports successful')
-        except ImportError as e:
-            print(f'❌ Import failed: {e}')
-            sys.exit(1)
-        "
-    
-    - name: 🚀 Deploy to Hugging Face
-      env:
-        HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        HF_USERNAME: abhash-chakraborty
-        HF_REPO: text_extractor
-      run: |
-        echo "🚀 Deploying to Hugging Face Spaces..."
-        
-        # Validate HF_TOKEN
-        if [[ -z "$HF_TOKEN" ]]; then
-          echo "❌ HF_TOKEN secret is not set!"
-          echo "Please add your Hugging Face token as a repository secret:"
-          echo "1. Go to https://huggingface.co/settings/tokens"
-          echo "2. Create a token with 'write' permissions"
-          echo "3. Add it as HF_TOKEN in GitHub repository secrets"
-          exit 1
-        fi
-        
-        # Configure git
-        git config --global user.email "abhashchak14@gmail.com"
-        git config --global user.name "Abhash Chakraborty"
-        
-        # Clone or update HF repo
-        HF_REPO_URL="https://$HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/$HF_USERNAME/$HF_REPO"
-        
-        if git ls-remote --exit-code --heads "$HF_REPO_URL" main >/dev/null 2>&1; then
-          echo "📥 HF repository exists, cloning..."
-          git clone "$HF_REPO_URL" hf-repo
-          cd hf-repo
-          git checkout main
-        else
-          echo "🆕 Creating new HF repository..."
-          mkdir hf-repo
-          cd hf-repo
-          git init
-          git remote add origin "$HF_REPO_URL"
-        fi
-        
-        # Copy files (excluding .git and unnecessary files)
-        echo "📁 Copying project files..."
-        rsync -av --exclude='.git' --exclude='hf-repo' --exclude='__pycache__' --exclude='.pytest_cache' --exclude='.venv' --exclude='node_modules' ../ ./
-        
-        # Add all files
-        git add .
-        
-        # Check if there are changes
-        if git diff --staged --quiet && [[ "${{ github.event.inputs.force_deploy }}" != "true" ]]; then
-          echo "📄 No changes detected, skipping deployment"
-          exit 0
-        fi
-        
-        # Commit and push
-        COMMIT_MSG="🔄 Auto-sync from GitHub - $(date '+%Y-%m-%d %H:%M:%S')"
-        if [[ "${{ github.event_name }}" == "push" ]]; then
-          COMMIT_MSG="🔄 Sync: ${{ github.event.head_commit.message }}"
-        fi
-        
-        git commit -m "$COMMIT_MSG" || echo "No changes to commit"
-        git push origin main --force
-        
-        echo "✅ Successfully deployed to Hugging Face!"
-        echo "🌐 View your space at: https://huggingface.co/spaces/$HF_USERNAME/$HF_REPO"
-    
-    - name: 📊 Deployment Summary
-      if: always()
-      run: |
-        echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        
-        if [[ "${{ job.status }}" == "success" ]]; then
-          echo "✅ **Status**: Deployment successful!" >> $GITHUB_STEP_SUMMARY
-          echo "🌐 **Space URL**: https://huggingface.co/spaces/abhash-chakraborty/text_extractor" >> $GITHUB_STEP_SUMMARY
-          echo "📱 **App URL**: https://abhash-chakraborty-text-extractor.hf.space" >> $GITHUB_STEP_SUMMARY
+
+          # Configure git
+          git config --global user.email "abhashchak14@gmail.com"
+          git config --global user.name "Abhash Chakraborty"
+
+          # Clone or update HF repo
+          HF_REPO_URL="https://$HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/$HF_USERNAME/$HF_REPO"
+
+          if git ls-remote --exit-code --heads "$HF_REPO_URL" main >/dev/null 2>&1; then
+            echo "📥 HF repository exists, cloning..."
+            git clone "$HF_REPO_URL" hf-repo
+            cd hf-repo
+            git checkout main
+          else
+            echo "🆕 Creating new HF repository..."
+            mkdir hf-repo
+            cd hf-repo
+            git init
+            git remote add origin "$HF_REPO_URL"
+          fi
+
+          # Copy files (excluding .git and unnecessary files)
+          echo "📁 Copying project files..."
+          rsync -av --exclude='.git' --exclude='hf-repo' --exclude='__pycache__' --exclude='.pytest_cache' --exclude='.venv' --exclude='node_modules' ../ ./
+
+          # Add all files
+          git add .
+
+          # Check if there are changes
+          if git diff --staged --quiet && [[ "${{ github.event.inputs.force_deploy }}" != "true" ]]; then
+            echo "📄 No changes detected, skipping deployment"
+            exit 0
+          fi
+
+          # Commit and push
+          COMMIT_MSG="🔄 Auto-sync from GitHub - $(date '+%Y-%m-%d %H:%M:%S')"
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            COMMIT_MSG="🔄 Sync: ${{ github.event.head_commit.message }}"
+          fi
+
+          git commit -m "$COMMIT_MSG" || echo "No changes to commit"
+          git push origin main --force
+
+          echo "✅ Successfully deployed to Hugging Face!"
+          echo "🌐 View your space at: https://huggingface.co/spaces/$HF_USERNAME/$HF_REPO"
+
+      - name: 📊 Deployment Summary
+        if: always()
+        run: |
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🎯 Next Steps:" >> $GITHUB_STEP_SUMMARY
-          echo "- Your Hugging Face Space is now updated" >> $GITHUB_STEP_SUMMARY
-          echo "- It may take a few minutes for changes to be visible" >> $GITHUB_STEP_SUMMARY
-          echo "- Check the space logs if you encounter any issues" >> $GITHUB_STEP_SUMMARY
-        else
-          echo "❌ **Status**: Deployment failed!" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔧 Troubleshooting:" >> $GITHUB_STEP_SUMMARY
-          echo "- Check if HF_TOKEN is properly set in repository secrets" >> $GITHUB_STEP_SUMMARY
-          echo "- Verify Hugging Face token has write permissions" >> $GITHUB_STEP_SUMMARY
-          echo "- Review the workflow logs for specific errors" >> $GITHUB_STEP_SUMMARY
-        fi
+
+          if [[ "${{ job.status }}" == "success" ]]; then
+            echo "✅ **Status**: Deployment successful!" >> $GITHUB_STEP_SUMMARY
+            echo "🌐 **Space URL**: https://huggingface.co/spaces/abhash-chakraborty/text_extractor" >> $GITHUB_STEP_SUMMARY
+            echo "📱 **App URL**: https://abhash-chakraborty-text-extractor.hf.space" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🎯 Next Steps:" >> $GITHUB_STEP_SUMMARY
+            echo "- Your Hugging Face Space is now updated" >> $GITHUB_STEP_SUMMARY
+            echo "- It may take a few minutes for changes to be visible" >> $GITHUB_STEP_SUMMARY
+            echo "- Check the space logs if you encounter any issues" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Status**: Deployment failed!" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 🔧 Troubleshooting:" >> $GITHUB_STEP_SUMMARY
+            echo "- Check if HF_TOKEN is properly set in repository secrets" >> $GITHUB_STEP_SUMMARY
+            echo "- Verify Hugging Face token has write permissions" >> $GITHUB_STEP_SUMMARY
+            echo "- Review the workflow logs for specific errors" >> $GITHUB_STEP_SUMMARY
+          fi

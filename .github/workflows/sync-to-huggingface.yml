@@ -10,36 +10,36 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0 # Fetch full history for proper sync
-        lfs: true # Enable Git LFS support
-    
-    - name: Push to Hugging Face Hub
-      env:
-        HF_TOKEN: ${{ secrets.HF_TOKEN }}
-      run: |
-        # Configure git for Hugging Face
-        git config --global user.email "abhashchak14@gmail.com"
-        git config --global user.name "Abhash Chakraborty"
-        
-        # Add Hugging Face remote (if it doesn't exist)
-        git remote add hf https://abhash-chakraborty:$HF_TOKEN@huggingface.co/spaces/abhash-chakraborty/text_extractor || true
-        
-        # Push to Hugging Face
-        git push hf main --force
-    
-    - name: Notify on success
-      if: success()
-      run: |
-        echo "✅ Successfully synced to Hugging Face Space!"
-        echo "🚀 Your space will be updated at: https://huggingface.co/spaces/abhash-chakraborty/text_extractor"
-    
-    - name: Notify on failure
-      if: failure()
-      run: |
-        echo "❌ Failed to sync to Hugging Face Space"
-        echo "Please check your HF_TOKEN secret and repository configuration"
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Fetch full history for proper sync
+          lfs: true # Enable Git LFS support
+
+      - name: Push to Hugging Face Hub
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          # Configure git for Hugging Face
+          git config --global user.email "abhashchak14@gmail.com"
+          git config --global user.name "Abhash Chakraborty"
+
+          # Add Hugging Face remote (if it doesn't exist)
+          git remote add hf https://abhash-chakraborty:$HF_TOKEN@huggingface.co/spaces/abhash-chakraborty/text_extractor || true
+
+          # Push to Hugging Face
+          git push hf main --force
+
+      - name: Notify on success
+        if: success()
+        run: |
+          echo "✅ Successfully synced to Hugging Face Space!"
+          echo "🚀 Your space will be updated at: https://huggingface.co/spaces/abhash-chakraborty/text_extractor"
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "❌ Failed to sync to Hugging Face Space"
+          echo "Please check your HF_TOKEN secret and repository configuration"

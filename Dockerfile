@@ -2,16 +2,12 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && rm -rf /var/lib/apt/lists/*
-
-# Copy and install dependencies
-COPY pyproject.toml ./
-COPY src/ ./src/
+# Copy and install dependencies first for better caching
+COPY pyproject.toml README.md ./
 RUN pip install --no-cache-dir -e .
 
 # Copy application code
-COPY . .
+COPY src/ ./src/
 
 # Set Python path and default port (Hugging Face provides PORT)
 ENV PYTHONPATH=/app/src \
