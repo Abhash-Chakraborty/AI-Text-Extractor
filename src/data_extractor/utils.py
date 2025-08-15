@@ -1,8 +1,18 @@
 """Utility functions for data extraction."""
 
 import re
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Set
 from urllib.parse import urlparse
+
+
+# Centralized file type definitions
+TEXT_FILE_EXTENSIONS: Set[str] = {'.txt', '.md', '.rtf', '.csv', '.log'}
+VISION_FILE_EXTENSIONS: Set[str] = {'.pdf', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.ico'}
+
+
+def get_supported_extensions() -> Tuple[Set[str], Set[str]]:
+    """Get supported file extensions."""
+    return TEXT_FILE_EXTENSIONS, VISION_FILE_EXTENSIONS
 
 
 def is_google_drive_url(url: str) -> bool:
@@ -48,13 +58,31 @@ def validate_file_type(filename: str) -> Tuple[bool, str]:
     
     file_ext = os.path.splitext(filename)[1].lower()
     
-    # Supported file types
-    text_files = {'.txt', '.md', '.rtf', '.csv', '.log'}
-    vision_files = {'.pdf', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.ico'}
-    
-    if file_ext in text_files:
+    if file_ext in TEXT_FILE_EXTENSIONS:
         return True, "text"
-    elif file_ext in vision_files:
+    elif file_ext in VISION_FILE_EXTENSIONS:
         return True, "vision"
     else:
         return False, "unsupported"
+
+
+def read_text_file_with_encoding(file_path: str) -> str:
+    """Read text file with multiple encoding attempts."""
+    try:
+        # Try different encodings
+        encodings = ['utf-8', 'utf-8-sig', 'latin1', 'cp1252']
+        
+        for encoding in encodings:
+            try:
+                with open(file_path, 'r', encoding=encoding) as f:
+                    return f.read().strip()
+            except UnicodeDecodeError:
+                continue
+        
+        # If all encodings fail, read as binary and decode with errors='replace'
+        with open(file_path, 'rb') as f:
+            content = f.read()
+            return content.decode('utf-8', errors='replace').strip()
+            
+    except Exception as e:
+        raise RuntimeError(f"Error reading text file: {e}")

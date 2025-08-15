@@ -1,10 +1,13 @@
 ---
 title: Text_Extractor
-emoji: 📖
-colorFrom: green
-colorTo: yellow
+emoji: 📄
+colorFrom: blue
+colorTo: purple
 sdk: docker
 app_port: 7860
+python_version: 3.10
+license: mit
+short_description: Extract text from PDFs and documents using Google Vision API
 ---
 
 # Data Extractor
@@ -48,27 +51,43 @@ This approach is more reliable and respects LinkedIn's terms of service.
 
 - Python 3.8+
 - Google Cloud Vision API key
-- uv package manager (recommended) or pip
+- [uv package manager](https://docs.astral.sh/uv/getting-started/installation/) (recommended for fast, reliable dependency management)
 
 ### Installation
 
-1. **Clone the repository**:
+1. **Install uv** (if not already installed):
    ```bash
-   git clone https://github.com/Abhash-Chakraborty/Darzi-AI-Resume-Suite.git
-   cd Darzi-AI-Resume-Suite/backend/data-extractor
+   # On macOS and Linux
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   
+   # On Windows (PowerShell)
+   powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+   
+   # Or with pip
+   pip install uv
    ```
 
-2. **Install with uv** (recommended):
+2. **Clone the repository**:
+   ```bash
+   git clone https://github.com/Abhash-Chakraborty/AI-Text-Extractor.git
+   cd AI-Text-Extractor
+   ```
+
+3. **Install dependencies with uv** (recommended):
    ```bash
    uv sync
    ```
    
-   Or with pip:
+   Alternative installation methods:
    ```bash
+   # With pip (slower)
    pip install -e .
+   
+   # For development with linting/testing tools
+   uv sync --group dev
    ```
 
-3. **Set up Google Vision API**:
+4. **Set up Google Vision API**:
    - Go to [Google Cloud Console](https://console.cloud.google.com/)
    - Enable the Vision API
    - Create an API key
@@ -85,7 +104,10 @@ This approach is more reliable and respects LinkedIn's terms of service.
 Launch the web interface:
 
 ```bash
-# from the project root
+# Activate the uv environment and run Streamlit
+uv run streamlit run src/streamlit_app.py
+
+# Or from the project root (if environment is already activated)
 streamlit run src/streamlit_app.py
 ```
 
@@ -99,6 +121,10 @@ Then open http://localhost:8501 in your browser to:
 Run API locally with Uvicorn:
 
 ```bash
+# Using uv (recommended)
+uv run uvicorn src.api_app:app --reload --host 0.0.0.0 --port 8000
+
+# Or with uvicorn directly (if environment is activated)
 uvicorn src.api_app:app --reload --host 0.0.0.0 --port 8000
 ```
 
@@ -141,6 +167,7 @@ setx API_CORS_ORIGINS "https://your-frontend.app,https://another.app"
 
 When running the FastAPI server, the following endpoints are available:
 
+- GET / — Project information and usage guide
 - POST /api/extract — multipart form-data file upload
 - POST /api/extract-url — JSON body { "url": "<google-drive-url>" }
 - GET /healthz — health check
@@ -152,6 +179,10 @@ Docs:
 ### Python Package
 
 ```python
+# Install the package in development mode
+# uv sync  # (if using uv)
+# or pip install -e .
+
 from data_extractor import extract_text
 
 # Extract from local file
@@ -171,7 +202,7 @@ This app can be deployed on Hugging Face Spaces (Docker):
 
 1. **Push to Hugging Face**:
    ```bash
-   git push https://huggingface.co/spaces/YOUR_USERNAME/data-extractor
+   git push https://huggingface.co/spaces/abhash-chakraborty/text_extractor
    ```
 
 2. **Configure Variables & Secrets**:
@@ -183,27 +214,27 @@ This app can be deployed on Hugging Face Spaces (Docker):
 
 #### Hugging Face Space endpoints (API mode)
 
-Replace YOUR_SPACE_URL with the URL shown on the Space "App" tab, e.g., `https://your-space-yourname.hf.space`.
+Use the Hugging Face Space URL: `https://huggingface.co/spaces/abhash-chakraborty/text_extractor`
 
 Examples:
 
 ```bash
 # Health check
-curl -sS https://YOUR_SPACE_URL/healthz
+curl -sS https://abhash-chakraborty-text-extractor.hf.space/healthz
 
 # Upload a file (PDF/txt/etc.)
-curl -X POST "https://YOUR_SPACE_URL/api/extract" -F "file=@path/to/document.pdf"
+curl -X POST "https://abhash-chakraborty-text-extractor.hf.space/api/extract" -F "file=@path/to/document.pdf"
 
 # Extract from a URL (e.g., Google Drive link)
-curl -X POST "https://YOUR_SPACE_URL/api/extract-url" \
+curl -X POST "https://abhash-chakraborty-text-extractor.hf.space/api/extract-url" \
    -H "Content-Type: application/json" \
    -d '{"url":"https://drive.google.com/file/d/FILE_ID/view"}'
 
 # Interactive docs
 # Swagger UI
-start https://YOUR_SPACE_URL/docs
+start https://abhash-chakraborty-text-extractor.hf.space/docs
 # ReDoc
-start https://YOUR_SPACE_URL/redoc
+start https://abhash-chakraborty-text-extractor.hf.space/redoc
 ```
 
 Notes:
@@ -216,17 +247,22 @@ Notes:
 ### Local Development
 
 ```bash
-# Install development dependencies
+# Install development dependencies with uv
 uv sync --group dev
 
-# Run tests
-pytest
+# Run tests (when available)
+uv run pytest
 
 # Format code
-black src/
-isort src/
+uv run black src/
+uv run isort src/
 
 # Lint code
+uv run flake8 src/
+
+# Or use traditional tools (if environment is activated)
+black src/
+isort src/
 flake8 src/
 ```
 
@@ -246,28 +282,19 @@ data-extractor/
 │   └── utils.py         # Helper functions
 ├── src/api_app.py       # FastAPI app (REST API)
 ├── src/streamlit_app.py # Streamlit web app
-├── pyproject.toml       # Package configuration
-├── requirements.txt     # Dependencies for HF Spaces
+├── pyproject.toml       # Package configuration & dependencies
+├── uv.lock             # UV lock file for reproducible builds
+├── Dockerfile          # Docker configuration
 └── README.md           # This file
-
-## Do I need cloud storage?
-
-Short answer: No.
-
-- Local uploads are processed in-memory or via temporary files and removed after extraction.
-- Google Drive URLs are downloaded into a temporary file and deleted after processing.
-- Nothing is persisted to disk or external storage by default.
-
-Consider external storage (e.g., S3/GCS) only if you need to retain original files or outputs, handle very large files, or build user-specific history/audit features.
 ```
 
-## Why enable CORS and OpenAPI docs?
+## Why UV?
 
-- Faster iteration: Test requests directly from Swagger UI without external tools.
-- Easier integration: Frontends can call the API from browsers when CORS is enabled.
-- Better DX: Self-documented API contract (/openapi.json) supports client generation.
-- Safer defaults: CORS origins can be restricted per environment; use `*` only in dev.
-
+This project uses [UV](https://docs.astral.sh/uv/) for dependency management because it's:
+- **Fast**: 10-100x faster than pip
+- **Reliable**: Deterministic dependency resolution
+- **Simple**: Drop-in replacement for pip/virtualenv
+- **Modern**: Built in Rust with excellent Python tooling integration
 ## Contributing
 
 1. Fork the repository

@@ -12,7 +12,7 @@ license = {text = "MIT"}
 authors = [
     {name = "Abhash Chakraborty", email = "abhashchak14@gmail.com"}
 ]
-keywords = ["pdf", "text-extraction", "google-vision", "streamlit", "resume"]
+keywords = ["pdf", "text-extraction", "google-vision", "streamlit", "resume", "fastapi"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -28,13 +28,16 @@ dependencies = [
     "streamlit>=1.28.0",
     "requests>=2.31.0",
     "python-dotenv>=1.0.0",
-    "Pillow>=10.0.0",
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    "python-multipart>=0.0.9",
 ]
 
 [project.urls]
-Homepage = "https://github.com/Abhash-Chakraborty/Darzi-AI-Resume-Suite"
-Repository = "https://github.com/Abhash-Chakraborty/Darzi-AI-Resume-Suite"
-Issues = "https://github.com/Abhash-Chakraborty/Darzi-AI-Resume-Suite/issues"
+Homepage = "https://github.com/Abhash-Chakraborty/AI-Text-Extractor"
+Repository = "https://github.com/Abhash-Chakraborty/AI-Text-Extractor"
+Issues = "https://github.com/Abhash-Chakraborty/AI-Text-Extractor/issues"
+HuggingFace = "https://huggingface.co/spaces/abhash-chakraborty/text_extractor"
 
 [project.optional-dependencies]
 dev = [
@@ -46,17 +49,6 @@ dev = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/data_extractor"]
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.hatch.envs.default]
-dependencies = [
-    "streamlit>=1.28.0",
-    "requests>=2.31.0", 
-    "python-dotenv>=1.0.0",
-    "Pillow>=10.0.0",
-]
 
 [tool.black]
 line-length = 88

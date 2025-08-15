@@ -3,13 +3,12 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install dependencies
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy and install dependencies
+COPY pyproject.toml ./
+COPY src/ ./src/
+RUN pip install --no-cache-dir -e .
 
 # Copy application code
 COPY . .
@@ -23,7 +22,7 @@ ENV PYTHONPATH=/app/src \
 EXPOSE 7860
 
 # Health check (use PORT env set by platform)
-HEALTHCHECK CMD curl --fail http://localhost:${PORT}/_stcore/health || exit 1
+HEALTHCHECK CMD python -c "import requests; requests.get(f'http://localhost:{__import__('os').getenv(\"PORT\", \"7860\")}/healthz' if __import__('os').getenv('APP_MODE') == 'api' else f'http://localhost:{__import__('os').getenv(\"PORT\", \"7860\")}/_stcore/health')" || exit 1
 
 # Run either Streamlit UI or FastAPI API based on APP_MODE
 CMD if [ "$APP_MODE" = "api" ]; then \

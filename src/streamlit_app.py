@@ -17,7 +17,11 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from data_extractor import extract_text
-from data_extractor.utils import validate_file_type, format_file_size
+from data_extractor.utils import validate_file_type, format_file_size, get_supported_extensions, read_text_file_with_encoding
+
+# File size limits (100MB max per file, 10 files max)
+MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB
+MAX_FILES_COUNT = 10
 
 
 def main():
@@ -68,11 +72,21 @@ def main():
             "Choose files to extract text from",
             type=['pdf', 'txt', 'md', 'csv', 'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp'],
             accept_multiple_files=True,
-            help="Upload PDFs, images, or text files",
+            help=f"Upload PDFs, images, or text files. Max {MAX_FILES_COUNT} files, {format_file_size(MAX_FILE_SIZE)} per file.",
             key="file_uploader"
         )
         
         if uploaded_files:
+            if len(uploaded_files) > MAX_FILES_COUNT:
+                st.error(f"Too many files! Maximum {MAX_FILES_COUNT} files allowed. You selected {len(uploaded_files)} files.")
+                return
+            
+            # Check file sizes
+            oversized_files = [f for f in uploaded_files if f.size and f.size > MAX_FILE_SIZE]
+            if oversized_files:
+                st.error(f"File(s) too large: {', '.join([f'{f.name} ({format_file_size(f.size)})' for f in oversized_files])}. Maximum size is {format_file_size(MAX_FILE_SIZE)}.")
+                return
+            
             st.write(f"{len(uploaded_files)} file(s) selected")
             process_all = st.button("Process all files", key="process_all")
             for idx, uploaded_file in enumerate(uploaded_files):
@@ -98,13 +112,13 @@ def main():
         
         #### 1. Extract from File Upload
         ```bash
-        curl -X POST "https://your-app.hf.space/api/extract" \\
+        curl -X POST "https://abhash-chakraborty-text-extractor.hf.space/api/extract" \\
           -F "file=@document.pdf"
         ```
         
         #### 2. Extract from URL
         ```bash
-        curl -X POST "https://your-app.hf.space/api/extract-url" \\
+        curl -X POST "https://abhash-chakraborty-text-extractor.hf.space/api/extract-url" \\
           -H "Content-Type: application/json" \\
           -d '{"url": "https://drive.google.com/file/d/FILE_ID/view"}'
         ```
@@ -160,8 +174,9 @@ def handle_file_upload(uploaded_file: Any, idx: int, force_process: bool = False
         with st.spinner(f"Extracting text from {uploaded_file.name}..."):
             try:
                 file_ext = os.path.splitext(uploaded_file.name)[1].lower()
-                # Text-like files: process in-memory to avoid FS issues
-                if file_ext in {'.txt', '.md', '.rtf', '.csv', '.log'}:
+                # Text-like files: process using unified utility
+                text_extensions, _ = get_supported_extensions()
+                if file_ext in text_extensions:
                     raw = uploaded_file.getvalue()
                     text = None
                     for enc in ('utf-8', 'utf-8-sig', 'latin1', 'cp1252'):

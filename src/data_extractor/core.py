@@ -4,14 +4,62 @@ import base64
 import os
 import re
 import tempfile
+import time
 from typing import Optional, Tuple
 
 import requests
 from dotenv import load_dotenv
 
-from .utils import is_google_drive_url, extract_google_drive_file_id
+from .utils import is_google_drive_url, extract_google_drive_file_id, get_supported_extensions, read_text_file_with_encoding
 
 load_dotenv()
+
+# Request configuration
+REQUEST_TIMEOUT = (10, 120)  # (connect, read) timeouts in seconds
+MAX_RETRIES = 3
+RETRY_DELAY = 1  # seconds
+
+
+def make_request_with_retry(url: str, **kwargs) -> requests.Response:
+    """Make HTTP request with retry logic."""
+    kwargs.setdefault('timeout', REQUEST_TIMEOUT)
+    
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = requests.get(url, **kwargs)
+            response.raise_for_status()
+            return response
+        except (requests.RequestException, requests.Timeout) as e:
+            if attempt == MAX_RETRIES - 1:  # Last attempt
+                raise RuntimeError(f"Request failed after {MAX_RETRIES} attempts: {e}")
+            
+            # Retry on network errors, timeouts, and 5xx/429 status codes
+            if isinstance(e, requests.HTTPError):
+                if e.response.status_code < 500 and e.response.status_code != 429:
+                    raise RuntimeError(f"HTTP error {e.response.status_code}: {e}")
+            
+            time.sleep(RETRY_DELAY * (attempt + 1))  # Exponential backoff
+
+
+def make_post_request_with_retry(url: str, **kwargs) -> requests.Response:
+    """Make HTTP POST request with retry logic."""
+    kwargs.setdefault('timeout', REQUEST_TIMEOUT)
+    
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = requests.post(url, **kwargs)
+            response.raise_for_status()
+            return response
+        except (requests.RequestException, requests.Timeout) as e:
+            if attempt == MAX_RETRIES - 1:  # Last attempt
+                raise RuntimeError(f"Request failed after {MAX_RETRIES} attempts: {e}")
+            
+            # Retry on network errors, timeouts, and 5xx/429 status codes
+            if isinstance(e, requests.HTTPError):
+                if e.response.status_code < 500 and e.response.status_code != 429:
+                    raise RuntimeError(f"HTTP error {e.response.status_code}: {e}")
+            
+            time.sleep(RETRY_DELAY * (attempt + 1))  # Exponential backoff
 
 
 def download_google_drive_file(url: str) -> Tuple[str, str]:
@@ -28,7 +76,7 @@ def download_google_drive_file(url: str) -> Tuple[str, str]:
     }
     
     try:
-        response = requests.get(download_url, headers=headers, timeout=60, stream=True)
+        response = make_request_with_retry(download_url, headers=headers, stream=True)
         
         # Handle Google Drive's virus scan warning for large files
         if 'virus scan warning' in response.text.lower():
@@ -37,9 +85,7 @@ def download_google_drive_file(url: str) -> Tuple[str, str]:
             match = re.search(confirm_pattern, response.text)
             if match:
                 confirm_url = "https://drive.google.com" + match.group(1).replace('&amp;', '&')
-                response = requests.get(confirm_url, headers=headers, timeout=60, stream=True)
-        
-        response.raise_for_status()
+                response = make_request_with_retry(confirm_url, headers=headers, stream=True)
         
         # Determine file extension from content type or URL
         content_type = response.headers.get('content-type', '').lower()
@@ -78,7 +124,9 @@ def download_google_drive_file(url: str) -> Tuple[str, str]:
         
         return temp_path, file_ext
         
-    except requests.RequestException as e:
+    except RuntimeError:
+        raise  # Re-raise our custom errors
+    except Exception as e:
         raise RuntimeError(f"Error downloading from Google Drive: {e}")
 
 
@@ -122,9 +170,8 @@ def extract_text_vision_api(file_path: str) -> str:
         
         url = f"https://vision.googleapis.com/v1/images:annotate?key={api_key}"
     
-    # Make API request
-    response = requests.post(url, json=request_body)
-    response.raise_for_status()
+    # Make API request with retry
+    response = make_post_request_with_retry(url, json=request_body)
     
     result = response.json()
     
@@ -179,25 +226,8 @@ def extract_text_vision_api(file_path: str) -> str:
 
 
 def read_text_file(file_path: str) -> str:
-    """Read text file directly (no API needed)."""
-    try:
-        # Try different encodings
-        encodings = ['utf-8', 'utf-8-sig', 'latin1', 'cp1252']
-        
-        for encoding in encodings:
-            try:
-                with open(file_path, 'r', encoding=encoding) as f:
-                    return f.read().strip()
-            except UnicodeDecodeError:
-                continue
-        
-        # If all encodings fail, read as binary and decode with errors='replace'
-        with open(file_path, 'rb') as f:
-            content = f.read()
-            return content.decode('utf-8', errors='replace').strip()
-            
-    except Exception as e:
-        raise RuntimeError(f"Error reading text file: {e}")
+    """Read text file directly (no API needed) - wrapper for unified function."""
+    return read_text_file_with_encoding(file_path)
 
 
 def extract_text(input_path: str) -> str:
@@ -218,15 +248,16 @@ def extract_text(input_path: str) -> str:
         if not os.path.exists(input_path):
             raise FileNotFoundError(f"File not found: {input_path}")
         
-        # Check file type
+        # Check file type using unified utility
         file_ext = os.path.splitext(input_path)[1].lower()
+        text_extensions, vision_extensions = get_supported_extensions()
         
         # Text files - read directly (no API cost)
-        if file_ext in {'.txt', '.md', '.rtf', '.csv', '.log'}:
+        if file_ext in text_extensions:
             return read_text_file(input_path)
         
         # PDF and image files - use Vision API
-        if file_ext in {'.pdf', '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.ico'}:
+        if file_ext in vision_extensions:
             return extract_text_vision_api(input_path)
         
         # Unknown file type - try to read as text first, then as binary
