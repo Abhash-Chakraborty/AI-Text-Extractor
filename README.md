@@ -200,6 +200,17 @@ print(text)
 
 This app can be deployed on Hugging Face Spaces (Docker):
 
+#### 🤖 **Automatic Deployment (Recommended)**
+
+This repository includes GitHub Actions for automatic deployment:
+
+1. **Set up auto-deployment** (one-time setup):
+   - See [Auto-Deploy Setup Guide](.github/DEPLOY_SETUP.md)
+   - Add your Hugging Face token as `HF_TOKEN` secret in GitHub
+   - Push to `main` branch → automatically deploys to HF Spaces!
+
+#### 📖 **Manual Deployment**
+
 1. **Push to Hugging Face**:
    ```bash
    git push https://huggingface.co/spaces/abhash-chakraborty/text_extractor
